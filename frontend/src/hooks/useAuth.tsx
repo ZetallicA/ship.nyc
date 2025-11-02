@@ -17,7 +17,8 @@ interface AuthContextType {
   user: User | null
   loading: boolean
   login: (email: string, password: string) => Promise<void>
-  register: (email: string, password: string, fullName: string, role: string) => Promise<void>
+  loginPIN: (email: string, pin: string) => Promise<void>
+  register: (email: string, password: string, fullName: string, role: string, pin?: string) => Promise<void>
   logout: () => void
 }
 
@@ -66,16 +67,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     router.push('/dashboard')
   }
 
-  const register = async (email: string, password: string, fullName: string, role: string) => {
+  const loginPIN = async (email: string, pin: string) => {
+    const response = await apiClient.post('/auth/login-pin', {
+      email,
+      pin,
+    })
+
+    Cookies.set('token', response.data.access_token, { expires: 30 })
+    await checkAuth()
+    router.push('/dashboard')
+  }
+
+  const register = async (email: string, password: string, fullName: string, role: string, pin?: string) => {
     await apiClient.post('/auth/register', {
       email,
       password,
       full_name: fullName,
       role,
+      pin,
     })
     
-    // Auto-login after registration
-    await login(email, password)
+    // Auto-login after registration (use PIN if provided, otherwise password)
+    if (pin) {
+      await loginPIN(email, pin)
+    } else {
+      await login(email, password)
+    }
   }
 
   const logout = () => {
@@ -85,7 +102,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, loginPIN, register, logout }}>
       {children}
     </AuthContext.Provider>
   )

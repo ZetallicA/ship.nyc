@@ -57,6 +57,7 @@ class UserCreate(BaseModel):
     password: str
     full_name: str
     role: str = "Sender"
+    pin: Optional[str] = None
 
 class UserUpdate(BaseModel):
     email: Optional[EmailStr] = None
@@ -73,6 +74,7 @@ class UserResponse(BaseModel):
 
 class UserInDB(UserResponse):
     password_hash: str
+    pin_hash: Optional[str] = None
 
 class Token(BaseModel):
     access_token: str
@@ -80,6 +82,10 @@ class Token(BaseModel):
 
 class TokenData(BaseModel):
     email: Optional[str] = None
+
+class PINLoginRequest(BaseModel):
+    email: EmailStr
+    pin: str
 
 class OfficeCreate(BaseModel):
     name: str
@@ -132,6 +138,18 @@ def get_password_hash(password: str) -> str:
     salt = bcrypt.gensalt(rounds=12)
     return bcrypt.hashpw(password_bytes, salt).decode('utf-8')
 
+def verify_pin(plain_pin: str, hashed_pin: str) -> bool:
+    try:
+        return bcrypt.checkpw(plain_pin.encode('utf-8'), hashed_pin.encode('utf-8'))
+    except:
+        return False
+
+def get_pin_hash(pin: str) -> str:
+    # PINs are shorter, but still use bcrypt for security
+    pin_bytes = pin.encode('utf-8')
+    salt = bcrypt.gensalt(rounds=12)
+    return bcrypt.hashpw(pin_bytes, salt).decode('utf-8')
+
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     to_encode = data.copy()
     if expires_delta:
@@ -178,6 +196,9 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> UserInDB:
     if user is None:
         raise credentials_exception
     user_dict = {**user, "id": str(user["_id"])}
+    # Ensure pin_hash is present (even if None)
+    if "pin_hash" not in user_dict:
+        user_dict["pin_hash"] = None
     return UserInDB(**user_dict)
 
 # API Routes
@@ -191,6 +212,11 @@ async def register(user: UserCreate):
     if users_collection.find_one({"email": user.email}):
         raise HTTPException(status_code=400, detail="Email already registered")
     
+    # Validate PIN if provided (should be 4-8 digits)
+    if user.pin:
+        if not user.pin.isdigit() or len(user.pin) < 4 or len(user.pin) > 8:
+            raise HTTPException(status_code=400, detail="PIN must be 4-8 digits")
+    
     # Create user
     user_dict = {
         "email": user.email,
@@ -200,10 +226,16 @@ async def register(user: UserCreate):
         "is_active": True,
         "created_date": datetime.utcnow()
     }
+    
+    # Add PIN hash if provided
+    if user.pin:
+        user_dict["pin_hash"] = get_pin_hash(user.pin)
+    
     result = users_collection.insert_one(user_dict)
     user_dict["id"] = str(result.inserted_id)
     user_dict.pop("_id", None)
     user_dict.pop("password_hash", None)
+    user_dict.pop("pin_hash", None)
     return UserResponse(**user_dict)
 
 @app.post("/api/auth/login", response_model=Token)
@@ -220,6 +252,58 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()):
         data={"sub": user["email"]}, expires_delta=access_token_expires
     )
     return {"access_token": access_token, "token_type": "bearer"}
+
+@app.post("/api/auth/login-pin", response_model=Token)
+async def login_pin(login_data: PINLoginRequest):
+    user = users_collection.find_one({"email": login_data.email})
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect email or PIN",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    # Check if user has a PIN set
+    if not user.get("pin_hash"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="PIN not set for this user. Please use email/password login or set a PIN first.",
+        )
+    
+    # Verify PIN
+    if not verify_pin(login_data.pin, user["pin_hash"]):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect email or PIN",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        data={"sub": user["email"]}, expires_delta=access_token_expires
+    )
+    return {"access_token": access_token, "token_type": "bearer"}
+
+class PINUpdateRequest(BaseModel):
+    pin: str
+
+@app.put("/api/auth/pin", response_model=dict)
+async def update_pin(
+    pin_data: PINUpdateRequest,
+    current_user: UserInDB = Depends(get_current_user)
+):
+    """Set or update user's PIN"""
+    # Validate PIN (4-8 digits)
+    if not pin_data.pin.isdigit() or len(pin_data.pin) < 4 or len(pin_data.pin) > 8:
+        raise HTTPException(status_code=400, detail="PIN must be 4-8 digits")
+    
+    # Update user's PIN hash
+    users_collection.update_one(
+        {"email": current_user.email},
+        {"$set": {"pin_hash": get_pin_hash(pin_data.pin)}}
+    )
+    
+    return {"message": "PIN updated successfully"}
 
 @app.get("/api/auth/me", response_model=UserResponse)
 async def read_users_me(current_user: UserInDB = Depends(get_current_user)):
