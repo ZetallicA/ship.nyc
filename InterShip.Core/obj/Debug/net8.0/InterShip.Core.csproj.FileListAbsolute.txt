@@ -1,0 +1,11 @@
+Y:\proj2\InterShip.Core\bin\Debug\net8.0\InterShip.Core.deps.json
+Y:\proj2\InterShip.Core\bin\Debug\net8.0\InterShip.Core.dll
+Y:\proj2\InterShip.Core\bin\Debug\net8.0\InterShip.Core.pdb
+Y:\proj2\InterShip.Core\obj\Debug\net8.0\InterShip.Core.GeneratedMSBuildEditorConfig.editorconfig
+Y:\proj2\InterShip.Core\obj\Debug\net8.0\InterShip.Core.AssemblyInfoInputs.cache
+Y:\proj2\InterShip.Core\obj\Debug\net8.0\InterShip.Core.AssemblyInfo.cs
+Y:\proj2\InterShip.Core\obj\Debug\net8.0\InterShip.Core.csproj.CoreCompileInputs.cache
+Y:\proj2\InterShip.Core\obj\Debug\net8.0\InterShip.Core.dll
+Y:\proj2\InterShip.Core\obj\Debug\net8.0\refint\InterShip.Core.dll
+Y:\proj2\InterShip.Core\obj\Debug\net8.0\InterShip.Core.pdb
+Y:\proj2\InterShip.Core\obj\Debug\net8.0\ref\InterShip.Core.dll

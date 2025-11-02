@@ -1,0 +1,71 @@
+version: '3.8'
+
+services:
+  mongodb:
+    image: mongo:7.0
+    container_name: intership-mongodb
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=admin
+      - MONGO_INITDB_ROOT_PASSWORD=password123
+      - MONGO_INITDB_DATABASE=intership
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - intership-network
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: intership-backend
+    environment:
+      - MONGODB_URL=mongodb://admin:password123@mongodb:27017/intership?authSource=admin
+      - JWT_SECRET=your-super-secret-jwt-key-change-in-production
+      - JWT_ALGORITHM=HS256
+      - CORS_ORIGINS=https://mail.oathone.com,https://localhost:8443,https://127.0.0.1:8443,https://192.168.8.199:8443,http://localhost:8080,http://127.0.0.1:8080,http://192.168.8.199:8080,http://localhost:3000,http://127.0.0.1:3000,http://192.168.8.199:3000
+    ports:
+      - "8000:8000"  # HTTP port
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    networks:
+      - intership-network
+    volumes:
+      - ./backend:/app
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: intership-frontend
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000/api
+      - NODE_ENV=development
+    ports:
+      - "8080:3000"  # HTTP port
+      - "8443:3443"  # HTTPS port (Next.js HTTPS on internal port 3443)
+    depends_on:
+      - backend
+    networks:
+      - intership-network
+    volumes:
+      - ./frontend:/app
+      - ./certs:/app/certs:ro  # Mount SSL certificates
+      - /app/node_modules
+      - /app/.next
+    command: sh -c "if [ -f /app/certs/localhost-key.pem ] && [ -f /app/certs/localhost.pem ]; then NEXT_HTTPS_PORT=3443 npm run dev:https; else npm run dev; fi"
+
+volumes:
+  mongodb_data:
+
+networks:
+  intership-network:
+    driver: bridge
