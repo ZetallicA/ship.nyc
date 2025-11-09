@@ -29,9 +29,11 @@ services:
       - MONGODB_URL=mongodb://admin:password123@mongodb:27017/intership?authSource=admin
       - JWT_SECRET=your-super-secret-jwt-key-change-in-production
       - JWT_ALGORITHM=HS256
-      - CORS_ORIGINS=https://mail.oathone.com,https://localhost:8443,https://127.0.0.1:8443,https://192.168.8.199:8443,http://localhost:8080,http://127.0.0.1:8080,http://192.168.8.199:8080,http://localhost:3000,http://127.0.0.1:3000,http://192.168.8.199:3000
+      - CORS_ORIGINS=https://mail.oathone.com,https://mail.oathone.com:443,https://mail.oathone.com:9443,https://mailbackend.oathone.com,https://localhost:9443,https://127.0.0.1:9443,https://192.168.8.199:9443,http://localhost:8080,http://127.0.0.1:8080,http://192.168.8.199:8080,http://localhost:3000,http://127.0.0.1:3000,http://192.168.8.199:3000
+      - CORS_ALLOW_ALL=true
     ports:
       - "8000:8000"  # HTTP port
+      - "9443:8443"  # HTTPS port (external:internal)
     depends_on:
       mongodb:
         condition: service_healthy
@@ -39,7 +41,8 @@ services:
       - intership-network
     volumes:
       - ./backend:/app
-    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+      - ./certs:/app/certs:ro  # Mount SSL certificates
+    command: sh -c "if [ -f /app/certs/localhost-key.pem ] && [ -f /app/certs/localhost.pem ]; then (uvicorn main:app --host 0.0.0.0 --port 8000 --reload &) && uvicorn main:app --host 0.0.0.0 --port 8443 --ssl-keyfile /app/certs/localhost-key.pem --ssl-certfile /app/certs/localhost.pem --reload; else uvicorn main:app --host 0.0.0.0 --port 8000 --reload; fi"
 
   frontend:
     build:
@@ -51,7 +54,7 @@ services:
       - NODE_ENV=development
     ports:
       - "8080:3000"  # HTTP port
-      - "8443:3443"  # HTTPS port (Next.js HTTPS on internal port 3443)
+      - "9444:3443"  # HTTPS port (Next.js HTTPS on internal port 3443)
     depends_on:
       - backend
     networks:

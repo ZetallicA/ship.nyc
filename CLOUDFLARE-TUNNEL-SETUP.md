@@ -37,18 +37,18 @@ tunnel: your-tunnel-id
 credentials-file: /path/to/credentials.json
 
 ingress:
-  # Frontend - React App
+  # Frontend - Next.js App (Docker)
   - hostname: mail.oathone.com
-    service: https://localhost:3000
+    service: https://192.168.8.199:9444
     originRequest:
-      httpHostHeader: localhost:3000
+      httpHostHeader: 192.168.8.199:9444
       noTLSVerify: true
   
-  # Backend API - ASP.NET Core
+  # Backend API - FastAPI (Docker)
   - hostname: mailbackend.oathone.com
-    service: https://localhost:7000
+    service: https://192.168.8.199:9443
     originRequest:
-      httpHostHeader: localhost:7000
+      httpHostHeader: 192.168.8.199:9443
       noTLSVerify: true
   
   # Catch-all rule (must be last)

@@ -7,18 +7,22 @@ import Cookies from 'js-cookie'
 
 interface User {
   id: string
-  email: string
+  username: string
+  email?: string
   full_name: string
   role: string
   is_active: boolean
+  id_number?: string
 }
 
 interface AuthContextType {
   user: User | null
   loading: boolean
-  login: (email: string, password: string) => Promise<void>
-  loginPIN: (email: string, pin: string) => Promise<void>
-  register: (email: string, password: string, fullName: string, role: string, pin?: string) => Promise<void>
+  login: (username: string, password: string, redirectUrl?: string) => Promise<void>
+  loginPIN: (id_number: string, pin: string, redirectUrl?: string) => Promise<void>
+  register: (username: string, password: string, fullName: string, role: string, email?: string) => Promise<void>
+  updatePassword: (currentPassword: string, newPassword: string) => Promise<void>
+  updatePIN: (pin: string) => Promise<void>
   logout: () => void
 }
 
@@ -51,48 +55,112 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  const login = async (email: string, password: string) => {
-    const formData = new FormData()
-    formData.append('username', email)
-    formData.append('password', password)
+  const login = async (username: string, password: string, redirectUrl: string = '/dashboard') => {
+    try {
+      // Wake up backend before login attempt
+      try {
+        const apiUrl = typeof window !== 'undefined' ? 
+          (window.location.hostname === 'mail.oathone.com' ? 'https://mailbackend.oathone.com/api' : 
+           window.location.protocol === 'https:' ? `https://${window.location.hostname}:9443/api` : 
+           `http://${window.location.hostname}:8000/api`) : 
+          'http://localhost:8000/api'
+        
+        await apiClient.get('/health', { timeout: 5000 }).catch(() => {
+          // Health check failed, but continue with login attempt anyway
+          console.log('[Auth] Health check failed, proceeding with login...')
+        })
+      } catch (healthError) {
+        // Ignore health check errors, proceed with login
+        console.log('[Auth] Health check error ignored, proceeding with login...')
+      }
+      
+      const response = await apiClient.post('/auth/login', {
+        username,
+        password,
+      })
 
-    const response = await apiClient.post('/auth/login', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    })
-
-    Cookies.set('token', response.data.access_token, { expires: 30 })
-    await checkAuth()
-    router.push('/dashboard')
+      Cookies.set('token', response.data.access_token, { expires: 30 })
+      await checkAuth()
+      // Add small delay to show loading state
+      await new Promise(resolve => setTimeout(resolve, 500))
+      router.push(redirectUrl)
+    } catch (error: any) {
+      // Enhance network error messages
+      if (error.code === 'ERR_NETWORK' || error.message === 'Network Error' || error.code === 'ECONNABORTED') {
+        throw new Error('Backend server is not responding. The server may be starting up. Please wait a few seconds and try again.')
+      }
+      throw error
+    }
   }
 
-  const loginPIN = async (email: string, pin: string) => {
-    const response = await apiClient.post('/auth/login-pin', {
-      email,
-      pin,
-    })
+  const loginPIN = async (id_number: string, pin: string, redirectUrl: string = '/dashboard') => {
+    try {
+      // Wake up backend before login attempt
+      try {
+        const apiUrl = typeof window !== 'undefined' ? 
+          (window.location.hostname === 'mail.oathone.com' ? 'https://mailbackend.oathone.com/api' : 
+           window.location.protocol === 'https:' ? `https://${window.location.hostname}:9443/api` : 
+           `http://${window.location.hostname}:8000/api`) : 
+          'http://localhost:8000/api'
+        
+        await apiClient.get('/health', { timeout: 5000 }).catch(() => {
+          // Health check failed, but continue with login attempt anyway
+          console.log('[Auth] Health check failed, proceeding with login...')
+        })
+      } catch (healthError) {
+        // Ignore health check errors, proceed with login
+        console.log('[Auth] Health check error ignored, proceeding with login...')
+      }
+      
+      const response = await apiClient.post('/auth/login-pin', {
+        id_number: id_number.trim(),
+        pin: pin.trim(),
+      })
 
-    Cookies.set('token', response.data.access_token, { expires: 30 })
-    await checkAuth()
-    router.push('/dashboard')
+      Cookies.set('token', response.data.access_token, { expires: 30 })
+      await checkAuth()
+      // Add small delay to show loading state
+      await new Promise(resolve => setTimeout(resolve, 500))
+      router.push(redirectUrl)
+    } catch (error: any) {
+      // Re-throw with better error message
+      let errorMessage = error.response?.data?.detail || error.message || 'Login failed'
+      
+      // Enhance network error messages
+      if (error.code === 'ERR_NETWORK' || error.message === 'Network Error' || error.code === 'ECONNABORTED') {
+        errorMessage = 'Backend server is not responding. The server may be starting up. Please wait a few seconds and try again.'
+      }
+      
+      throw new Error(errorMessage)
+    }
   }
 
-  const register = async (email: string, password: string, fullName: string, role: string, pin?: string) => {
-    await apiClient.post('/auth/register', {
-      email,
+  const register = async (username: string, password: string, fullName: string, role: string, email?: string) => {
+    const registerData: any = {
+      username,
       password,
       full_name: fullName,
       role,
+    }
+    if (email) registerData.email = email
+
+    await apiClient.post('/auth/register', registerData)
+    
+    // Auto-login after registration
+    await login(username, password)
+  }
+
+  const updatePassword = async (currentPassword: string, newPassword: string) => {
+    await apiClient.put('/auth/password', {
+      current_password: currentPassword,
+      new_password: newPassword,
+    })
+  }
+
+  const updatePIN = async (pin: string) => {
+    await apiClient.put('/auth/pin', {
       pin,
     })
-    
-    // Auto-login after registration (use PIN if provided, otherwise password)
-    if (pin) {
-      await loginPIN(email, pin)
-    } else {
-      await login(email, password)
-    }
   }
 
   const logout = () => {
@@ -102,7 +170,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, loginPIN, register, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, loginPIN, register, updatePassword, updatePIN, logout }}>
       {children}
     </AuthContext.Provider>
   )
