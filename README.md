@@ -1,4 +1,4 @@
-# InterShip - Internal Mail & Package Tracking System
+# OATH Logistics - Internal Mail & Package Tracking System
 
 A complete package tracking system built with Next.js 15, FastAPI, and MongoDB.
 

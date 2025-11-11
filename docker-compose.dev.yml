@@ -1,0 +1,56 @@
+version: '3.8'
+
+services:
+  # Note: This compose file is meant to be used WITH docker-compose.yml
+  # Run: docker-compose -f docker-compose.yml -f docker-compose.dev.yml up -d
+  # This will use the production MongoDB instance
+
+  backend-dev:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: intership-backend-dev
+    environment:
+      - MONGODB_URL=mongodb://admin:password123@mongodb:27017/intership?authSource=admin
+      - JWT_SECRET=dev-super-secret-jwt-key-change-in-production
+      - JWT_ALGORITHM=HS256
+      - CORS_ORIGINS=https://dev.mail.oathone.com,https://dev.mail.oathone.com:443,https://dev.mailbackend.oathone.com,https://localhost:9446,https://127.0.0.1:9446,https://192.168.8.199:9446,http://localhost:8001,http://127.0.0.1:8001,http://192.168.8.199:8001
+      - CORS_ALLOW_ALL=true
+    ports:
+      - "8001:8000"  # HTTP port (dev)
+      - "9446:8443"  # HTTPS port (dev) - external:internal
+    depends_on:
+      - mongodb
+    networks:
+      - intership-network
+    volumes:
+      - ./backend:/app
+      - ./certs:/app/certs:ro  # Mount SSL certificates (same as production)
+    command: sh -c "if [ -f /app/certs/localhost-key.pem ] && [ -f /app/certs/localhost.pem ]; then (uvicorn main:app --host 0.0.0.0 --port 8000 --reload &) && uvicorn main:app --host 0.0.0.0 --port 8443 --ssl-keyfile /app/certs/localhost-key.pem --ssl-certfile /app/certs/localhost.pem --reload; else uvicorn main:app --host 0.0.0.0 --port 8000 --reload; fi"
+
+  frontend-dev:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: intership-frontend-dev
+    environment:
+      - NEXT_PUBLIC_API_URL=https://dev.mailbackend.oathone.com/api
+      - NEXT_PUBLIC_ENV=development
+      - NODE_ENV=development
+    ports:
+      - "8081:3000"  # HTTP port (dev)
+      - "9445:3443"  # HTTPS port (dev) - external:internal
+    depends_on:
+      - backend-dev
+    networks:
+      - intership-network
+    volumes:
+      - ./frontend:/app
+      - ./certs:/app/certs:ro  # Mount SSL certificates (same as production)
+      - /app/node_modules
+      - /app/.next
+    command: sh -c "if [ -f /app/certs/localhost-key.pem ] && [ -f /app/certs/localhost.pem ]; then NEXT_HTTPS_PORT=3443 npm run dev:https; else npm run dev; fi"
+
+# Networks are defined in docker-compose.yml
+# When using both files together, networks are merged automatically
+

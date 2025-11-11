@@ -77,7 +77,7 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto", bcrypt__rounds
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 
 # FastAPI app
-app = FastAPI(title="InterShip API", version="1.0.0")
+app = FastAPI(title="OATH Logistics API", version="1.0.0")
 
 # CORS - Support both localhost and IP addresses
 cors_origins_str = os.getenv("CORS_ORIGINS", "http://localhost:3000")
@@ -1089,9 +1089,9 @@ def send_delivery_email(sender_email: str, sender_name: str, tracking_number: st
             <p style="margin: 5px 0;"><strong>Recipient:</strong> {recipient_name}</p>
             <p style="margin: 5px 0;"><strong>Delivery Time:</strong> {delivery_time.strftime('%B %d, %Y at %I:%M %p UTC')}</p>
           </div>
-          <p>Thank you for using InterShip!</p>
+          <p>Thank you for using OATH Logistics!</p>
           <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;">
-          <p style="font-size: 12px; color: #6b7280;">This is an automated notification from InterShip tracking system.</p>
+          <p style="font-size: 12px; color: #6b7280;">This is an automated notification from OATH Logistics tracking system.</p>
         </div>
       </body>
     </html>

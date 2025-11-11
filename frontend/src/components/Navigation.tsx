@@ -64,14 +64,15 @@ export default function Navigation({ showBack = false, backUrl = '/dashboard', t
                 </svg>
               </Link>
             )}
-            <Link href="/dashboard" className="flex items-center flex-shrink-0" aria-label="InterShip Home">
-              <div className="relative">
-                <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-primary-blue to-primary-purple rounded-lg shadow transform rotate-12"></div>
-                <div className="absolute top-1 left-1 w-6 h-6 sm:w-8 sm:h-8 bg-primary-orange rounded-md"></div>
-              </div>
-              <span className="ml-2 sm:ml-3 text-xl sm:text-2xl font-bold">
-                <span className="text-primary-blue">Inter</span>
-                <span className="text-primary-orange">Ship</span>
+            <Link href="/dashboard" className="flex items-center flex-shrink-0" aria-label="OATH Logistics Home">
+              <img 
+                src="/oath-logo.png" 
+                alt="OATH Logistics" 
+                className="h-12 sm:h-16 w-auto"
+                style={{ maxHeight: '80px' }}
+              />
+              <span className="ml-2 sm:ml-3 text-xl sm:text-2xl font-bold text-gray-900">
+                OATH Logistics
               </span>
             </Link>
             {title && (

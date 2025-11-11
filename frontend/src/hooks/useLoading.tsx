@@ -85,7 +85,7 @@ export function LoadingProvider({ children }: { children: ReactNode }) {
       {children}
       {isLoading && (
         <div 
-          className="fixed inset-0 bg-black bg-opacity-60 z-[9999] flex items-center justify-center backdrop-blur-sm transition-opacity duration-200"
+          className="fixed inset-0 bg-gray-50 bg-opacity-95 z-[9999] flex items-center justify-center backdrop-blur-sm transition-opacity duration-200"
           style={{ pointerEvents: 'none' }}
         >
           <div className="bg-white rounded-xl p-8 shadow-2xl max-w-sm mx-4 transform transition-all pointer-events-auto">

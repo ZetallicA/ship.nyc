@@ -63,17 +63,36 @@ services:
 
 ## Quick Setup Steps
 
-1. **Add Cloudflare Routes**:
+1. **Ensure SSL Certificates Exist**:
+   ```powershell
+   .\setup-https-docker.ps1
+   ```
+   Or manually:
+   ```powershell
+   mkcert -install
+   cd certs
+   mkcert localhost 127.0.0.1 ::1 192.168.8.199 0.0.0.0
+   move localhost+4.pem localhost.pem
+   move localhost+4-key.pem localhost-key.pem
+   cd ..
+   ```
+
+2. **Start Dev/Stage Services**:
+   ```powershell
+   .\start-dev-environment.ps1
+   ```
+   Or manually:
+   ```powershell
+   docker-compose -f docker-compose.yml -f docker-compose.dev.yml up -d
+   ```
+
+3. **Add Cloudflare Routes**:
    - Go to Cloudflare Dashboard → Networks → Tunnels
    - Click "+ Add a published application route"
    - Add `dev.mail.oathone.com` → `https://192.168.8.199:9445`
    - Add `dev.mailbackend.oathone.com` → `https://192.168.8.199:9446`
 
-2. **Update Docker Compose** (if using separate dev containers):
-   - Create `docker-compose.dev.yml` with dev ports
-   - Run: `docker-compose -f docker-compose.dev.yml up -d`
-
-3. **Verify**:
+4. **Verify**:
    - Visit `https://dev.mail.oathone.com` - should load frontend
    - Visit `https://dev.mailbackend.oathone.com/api/health` - should return `{"status": "healthy"}`
 

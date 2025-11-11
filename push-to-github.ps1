@@ -3,7 +3,7 @@
 # GitHub Username: rabi.hamsi@gmail.com
 
 Write-Host "========================================" -ForegroundColor Cyan
-Write-Host "Pushing to GitHub: ship.nyc" -ForegroundColor Cyan
+Write-Host "Pushing to GitHub: OATH Logistics (ship.nyc repository)" -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
 

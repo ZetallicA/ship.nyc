@@ -3,7 +3,7 @@ REM Push to GitHub - InterShip Project
 REM Repository: https://github.com/ZetallicA/ship.nyc
 
 echo ========================================
-echo Pushing to GitHub: ship.nyc
+echo Pushing to GitHub: OATH Logistics (ship.nyc repository)
 echo ========================================
 echo.
 
