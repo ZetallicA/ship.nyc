@@ -6,11 +6,12 @@ import apiClient from '@/lib/axios'
 interface NFCScannerProps {
   onScanSuccess: (scanData: {
     tag_id: string
-    location_name: string
-    expires_at: string
+    location_name?: string
+    expires_at?: string
   }) => void
   onError?: (error: string) => void
   disabled?: boolean
+  adminMode?: boolean // If true, just read tag ID without API call
 }
 
 interface NFCScanResponse {
@@ -24,7 +25,7 @@ interface NFCScanResponse {
   expires_at: string
 }
 
-export default function NFCScanner({ onScanSuccess, onError, disabled = false }: NFCScannerProps) {
+export default function NFCScanner({ onScanSuccess, onError, disabled = false, adminMode = false }: NFCScannerProps) {
   const [scanning, setScanning] = useState(false)
   const [manualMode, setManualMode] = useState(false)
   const [tagId, setTagId] = useState('')
@@ -259,7 +260,7 @@ export default function NFCScanner({ onScanSuccess, onError, disabled = false }:
             stopNFCReader()
             setScanning(false)
             
-            // Submit the scan
+            // Submit the scan (will handle admin mode vs driver mode)
             await handleScanSubmit(tagIdString)
           } else {
             console.error('Could not extract tag ID from NFC tag')
@@ -328,6 +329,22 @@ export default function NFCScanner({ onScanSuccess, onError, disabled = false }:
     setSuccess('')
 
     try {
+      // Admin mode: just return the tag ID without API call
+      if (adminMode) {
+        setSuccess('NFC tag ID read successfully!')
+        setScanning(false)
+        setManualMode(false)
+        setTagId('')
+        setError('')
+        
+        // Notify parent component with just the tag ID
+        onScanSuccess({
+          tag_id: tagIdValue.trim()
+        })
+        return
+      }
+
+      // Driver mode: call API to record scan
       // Get current location if available
       let coordinates: { lat: number; lng: number } | undefined
       try {
@@ -385,6 +402,20 @@ export default function NFCScanner({ onScanSuccess, onError, disabled = false }:
       } else if (err.response?.status === 404) {
         // Store the scanned tag ID for prominent display
         setScannedTagId(tagIdValue.trim())
+        // In admin mode, 404 is OK - it means the tag is not registered yet, which is expected
+        if (adminMode) {
+          setSuccess('NFC tag ID read successfully!')
+          setScanning(false)
+          setManualMode(false)
+          setTagId('')
+          setError('')
+          
+          // Notify parent component with just the tag ID
+          onScanSuccess({
+            tag_id: tagIdValue.trim()
+          })
+          return
+        }
         errorMessage = `NFC tag not found. The tag ID "${tagIdValue.trim()}" is not registered in the system. Please register this tag in the Admin Panel first.`
       } else if (err.response?.status === 403) {
         errorMessage = 'You do not have permission to scan NFC tags. Only drivers can scan tags.'

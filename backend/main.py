@@ -1387,6 +1387,33 @@ async def get_nfc_tag(tag_id: str):
     
     return NFCTagResponse(**tag_dict)
 
+@app.get("/api/nfc-tags/{tag_id}/last-pickup")
+async def get_last_pickup_time(tag_id: str):
+    """Get last pickup time for an NFC tag location"""
+    tag = nfc_tags_collection.find_one({"tag_id": tag_id})
+    if not tag:
+        raise HTTPException(status_code=404, detail="NFC tag not found")
+    
+    # Find the most recent pickup scan for this tag
+    # Look for shipments that were picked up at this location
+    recent_scan = nfc_scans_collection.find_one(
+        {"tag_id": tag_id},
+        sort=[("scan_timestamp", -1)]
+    )
+    
+    if recent_scan:
+        return {
+            "tag_id": tag_id,
+            "location_name": tag.get("location_name"),
+            "last_pickup_time": recent_scan.get("scan_timestamp").isoformat() if recent_scan.get("scan_timestamp") else None
+        }
+    
+    return {
+        "tag_id": tag_id,
+        "location_name": tag.get("location_name"),
+        "last_pickup_time": None
+    }
+
 @app.put("/api/nfc-tags/{tag_id}", response_model=NFCTagResponse)
 async def update_nfc_tag(
     tag_id: str,
