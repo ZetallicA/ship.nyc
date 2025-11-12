@@ -59,12 +59,12 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 # Push to GitHub
-Write-Host "Pushing to GitHub..." -ForegroundColor Yellow
-git push -u origin main
+Write-Host "Pushing to GitHub (Staging branch)..." -ForegroundColor Yellow
+git push -u origin main:Staging
 if ($LASTEXITCODE -ne 0) {
     Write-Host ""
     Write-Host "Push failed. Attempting to set upstream..." -ForegroundColor Yellow
-    git push --set-upstream origin main
+    git push --set-upstream origin main:Staging
 }
 
 Write-Host ""

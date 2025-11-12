@@ -66,6 +66,7 @@ events_collection = db.shipment_events
 nfc_tags_collection = db.nfc_tags
 nfc_scans_collection = db.nfc_scans
 notification_preferences_collection = db.notification_preferences
+notifications_collection = db.notifications
 routes_collection = db.routes
 route_stops_collection = db.route_stops
 route_assignments_collection = db.route_assignments
@@ -235,17 +236,37 @@ class NFCScanResponse(BaseModel):
     location_name: Optional[str] = None
     expires_at: datetime  # 30 minutes from scan
 
+# Notification Models
+class NotificationCreate(BaseModel):
+    user_id: str
+    title: str
+    message: str
+    type: str = "in_app"  # "in_app", "email", "sms"
+    read: bool = False
+
+class NotificationResponse(BaseModel):
+    id: str
+    user_id: str
+    title: str
+    message: str
+    type: str
+    read: bool
+    created_at: datetime
+    read_at: Optional[datetime] = None
+
 # Notification Preferences Models
 class NotificationPreferencesCreate(BaseModel):
     notify_on_nfc_scan: bool = False
     notify_on_delivery: bool = True
-    notification_methods: List[str] = ["email"]  # ["email", "sms"]
+    notify_on_pickup: bool = True
+    notification_methods: List[str] = ["email", "in_app"]  # ["email", "sms", "in_app"]
     phone_number: Optional[str] = None
 
 class NotificationPreferencesResponse(BaseModel):
     user_id: str
     notify_on_nfc_scan: bool
     notify_on_delivery: bool
+    notify_on_pickup: bool
     notification_methods: List[str]
     phone_number: Optional[str] = None
 
@@ -431,12 +452,31 @@ def get_notification_preferences(user_id: str) -> dict:
             "user_id": user_id,
             "notify_on_nfc_scan": False,
             "notify_on_delivery": True,
-            "notification_methods": ["email"],
+            "notify_on_pickup": True,
+            "notification_methods": ["email", "in_app"],
             "phone_number": None
         }
         notification_preferences_collection.insert_one(default_prefs)
         return default_prefs
     return prefs
+
+def create_in_app_notification(user_id: str, title: str, message: str) -> str:
+    """Create an in-app notification for a user"""
+    try:
+        notification_dict = {
+            "user_id": user_id,
+            "title": title,
+            "message": message,
+            "type": "in_app",
+            "read": False,
+            "created_at": datetime.utcnow(),
+            "read_at": None
+        }
+        result = notifications_collection.insert_one(notification_dict)
+        return str(result.inserted_id)
+    except Exception as e:
+        print(f"Failed to create in-app notification: {e}")
+        return None
 
 def send_nfc_scan_notification(tag_id: str, driver_id: str, location_name: str, coordinates: Optional[dict] = None):
     """Send notifications to supervisors/admins when NFC tag is scanned"""
@@ -1074,6 +1114,32 @@ async def delete_user(user_id: str, current_user: UserInDB = Depends(get_current
     except:
         raise HTTPException(status_code=400, detail="Invalid user ID")
 
+def send_pickup_email(sender_email: str, sender_name: str, tracking_number: str, recipient_name: str, pickup_time: datetime, driver_name: str):
+    """Send email notification to sender when package is picked up"""
+    subject = f"📦 Package Picked Up - {tracking_number}"
+    body = f"""
+    <html>
+      <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+        <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+          <h2 style="color: #f59e0b;">🚚 Package Picked Up</h2>
+          <p>Dear {sender_name},</p>
+          <p>Your package has been picked up and is now in transit.</p>
+          <div style="background-color: #f3f4f6; padding: 15px; border-radius: 8px; margin: 20px 0;">
+            <p style="margin: 5px 0;"><strong>Tracking Number:</strong> {tracking_number}</p>
+            <p style="margin: 5px 0;"><strong>Recipient:</strong> {recipient_name}</p>
+            <p style="margin: 5px 0;"><strong>Picked Up By:</strong> {driver_name}</p>
+            <p style="margin: 5px 0;"><strong>Pickup Time:</strong> {pickup_time.strftime('%B %d, %Y at %I:%M %p UTC')}</p>
+          </div>
+          <p>You can track your package status at any time using the tracking number above.</p>
+          <p>Thank you for using OATH Logistics!</p>
+          <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;">
+          <p style="font-size: 12px; color: #6b7280;">This is an automated notification from OATH Logistics tracking system.</p>
+        </div>
+      </body>
+    </html>
+    """
+    return send_email(sender_email, subject, body)
+
 def send_delivery_email(sender_email: str, sender_name: str, tracking_number: str, recipient_name: str, delivery_time: datetime):
     """Send email notification when shipment is delivered"""
     subject = f"📦 Package Delivered - {tracking_number}"
@@ -1175,22 +1241,61 @@ async def update_shipment_status(
         user_agent=user_agent
     )
     
-    # Send email notification if delivered
-    if new_status == "Delivered":
-        # Get sender information
-        try:
-            sender = users_collection.find_one({"_id": ObjectId(shipment["sender_id"])})
-            if sender and sender.get("email"):
-                send_delivery_email(
-                    sender_email=sender["email"],
-                    sender_name=sender.get("full_name", sender.get("username", "User")),
-                    tracking_number=tracking_number,
-                    recipient_name=shipment["recipient_name"],
-                    delivery_time=delivery_time
-                )
-        except Exception as e:
-            print(f"Failed to send delivery notification: {e}")
-            # Don't fail the request if email fails
+    # Send notifications to sender
+    try:
+        sender = users_collection.find_one({"_id": ObjectId(shipment["sender_id"])})
+        if sender:
+            sender_id = str(sender["_id"])
+            sender_name = sender.get("full_name", sender.get("username", "User"))
+            
+            # Get sender's notification preferences
+            prefs = get_notification_preferences(sender_id)
+            
+            if new_status == "PickedUp":
+                # Check if sender wants pickup notifications
+                if prefs.get("notify_on_pickup", True):
+                    # Send email notification if enabled
+                    if "email" in prefs.get("notification_methods", []) and sender.get("email"):
+                        send_pickup_email(
+                            sender_email=sender["email"],
+                            sender_name=sender_name,
+                            tracking_number=tracking_number,
+                            recipient_name=shipment["recipient_name"],
+                            pickup_time=delivery_time,
+                            driver_name=current_user.full_name or current_user.username or "Driver"
+                        )
+                    
+                    # Create in-app notification if enabled
+                    if "in_app" in prefs.get("notification_methods", []):
+                        create_in_app_notification(
+                            user_id=sender_id,
+                            title=f"📦 Package Picked Up - {tracking_number}",
+                            message=f"Your package {tracking_number} has been picked up by {current_user.full_name or current_user.username or 'Driver'} and is now in transit to {shipment['recipient_name']}."
+                        )
+                        
+            elif new_status == "Delivered":
+                # Check if sender wants delivery notifications
+                if prefs.get("notify_on_delivery", True):
+                    # Send email notification if enabled
+                    if "email" in prefs.get("notification_methods", []) and sender.get("email"):
+                        send_delivery_email(
+                            sender_email=sender["email"],
+                            sender_name=sender_name,
+                            tracking_number=tracking_number,
+                            recipient_name=shipment["recipient_name"],
+                            delivery_time=delivery_time
+                        )
+                    
+                    # Create in-app notification if enabled
+                    if "in_app" in prefs.get("notification_methods", []):
+                        create_in_app_notification(
+                            user_id=sender_id,
+                            title=f"✅ Package Delivered - {tracking_number}",
+                            message=f"Your package {tracking_number} has been successfully delivered to {shipment['recipient_name']}."
+                        )
+    except Exception as e:
+        print(f"Failed to send notification: {e}")
+        # Don't fail the request if notification fails
     
     return {"message": "Status updated successfully", "status": new_status}
 
@@ -1351,13 +1456,22 @@ async def scan_nfc_tag(
     current_user: UserInDB = Depends(get_current_user)
 ):
     """Driver scans NFC tag"""
+    print(f"[NFC Scan] Request received from user: {current_user.username} (role: {current_user.role})")
+    print(f"[NFC Scan] Tag ID received: '{scan_request.tag_id}' (type: {type(scan_request.tag_id)}, length: {len(scan_request.tag_id) if scan_request.tag_id else 0})")
+    
     if current_user.role != "Driver":
+        print(f"[NFC Scan] ERROR: User {current_user.username} is not a Driver (role: {current_user.role})")
         raise HTTPException(status_code=403, detail="Only drivers can scan NFC tags")
     
     # Verify tag exists and is active
+    print(f"[NFC Scan] Searching for tag_id: '{scan_request.tag_id}'")
     nfc_tag = nfc_tags_collection.find_one({"tag_id": scan_request.tag_id})
+    
     if not nfc_tag:
-        raise HTTPException(status_code=404, detail="NFC tag not found")
+        # Log all available tags for debugging
+        all_tags = list(nfc_tags_collection.find({}, {"tag_id": 1, "location_name": 1}))
+        print(f"[NFC Scan] Tag not found. Available tags: {[tag.get('tag_id') for tag in all_tags]}")
+        raise HTTPException(status_code=404, detail=f"NFC tag not found. Tag ID '{scan_request.tag_id}' is not registered. Available tags: {[tag.get('tag_id') for tag in all_tags[:5]]}")
     
     if not nfc_tag.get("is_active", True):
         raise HTTPException(status_code=400, detail="NFC tag is inactive")
@@ -1426,6 +1540,55 @@ async def update_my_notification_preferences(
     
     return NotificationPreferencesResponse(**prefs_dict)
 
+# Notification Endpoints
+@app.get("/api/notifications", response_model=List[NotificationResponse])
+async def get_my_notifications(
+    current_user: UserInDB = Depends(get_current_user),
+    unread_only: bool = False
+):
+    """Get current user's notifications"""
+    query = {"user_id": str(current_user.id)}
+    if unread_only:
+        query["read"] = False
+    
+    notifications = list(notifications_collection.find(query).sort("created_at", -1).limit(100))
+    result = []
+    for notif in notifications:
+        notif_dict = {**notif, "id": str(notif["_id"])}
+        notif_dict.pop("_id", None)
+        result.append(NotificationResponse(**notif_dict))
+    return result
+
+@app.put("/api/notifications/{notification_id}/read")
+async def mark_notification_as_read(
+    notification_id: str,
+    current_user: UserInDB = Depends(get_current_user)
+):
+    """Mark a notification as read"""
+    notification = notifications_collection.find_one({
+        "_id": ObjectId(notification_id),
+        "user_id": str(current_user.id)
+    })
+    if not notification:
+        raise HTTPException(status_code=404, detail="Notification not found")
+    
+    notifications_collection.update_one(
+        {"_id": ObjectId(notification_id)},
+        {"$set": {"read": True, "read_at": datetime.utcnow()}}
+    )
+    return {"message": "Notification marked as read"}
+
+@app.put("/api/notifications/read-all")
+async def mark_all_notifications_as_read(
+    current_user: UserInDB = Depends(get_current_user)
+):
+    """Mark all notifications as read for current user"""
+    notifications_collection.update_many(
+        {"user_id": str(current_user.id), "read": False},
+        {"$set": {"read": True, "read_at": datetime.utcnow()}}
+    )
+    return {"message": "All notifications marked as read"}
+
 @app.get("/api/users/{user_id}/notification-preferences", response_model=NotificationPreferencesResponse)
 async def get_user_notification_preferences(
     user_id: str,
@@ -1437,6 +1600,41 @@ async def get_user_notification_preferences(
     
     prefs = get_notification_preferences(user_id)
     return NotificationPreferencesResponse(**prefs)
+
+@app.put("/api/users/{user_id}/notification-preferences", response_model=NotificationPreferencesResponse)
+async def update_user_notification_preferences(
+    user_id: str,
+    preferences: NotificationPreferencesCreate,
+    current_user: UserInDB = Depends(get_current_user)
+):
+    """Update user's notification preferences (Admin/Supervisor only)"""
+    if current_user.role not in ["Admin", "Supervisor"]:
+        raise HTTPException(status_code=403, detail="Admin or Supervisor access required")
+    
+    # Verify user exists
+    user = users_collection.find_one({"_id": ObjectId(user_id)})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    prefs_dict = preferences.dict()
+    prefs_dict["user_id"] = user_id
+    
+    # Update or insert
+    notification_preferences_collection.update_one(
+        {"user_id": user_id},
+        {"$set": prefs_dict},
+        upsert=True
+    )
+    
+    log_audit_event(
+        action="NOTIFICATION_PREFERENCES_UPDATED",
+        user_id=str(current_user.id),
+        entity_type="user",
+        entity_id=user_id,
+        changes={"preferences": prefs_dict}
+    )
+    
+    return NotificationPreferencesResponse(**prefs_dict)
 
 # Route Management Endpoints
 @app.post("/api/routes", response_model=RouteResponse)

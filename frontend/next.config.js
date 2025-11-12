@@ -9,8 +9,6 @@ const nextConfig = {
     buildActivity: false,
     buildActivityPosition: 'bottom-left',
   },
-  // Disable React DevTools overlay
-  reactDevOverlay: false,
 }
 
 module.exports = nextConfig

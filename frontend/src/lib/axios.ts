@@ -132,14 +132,19 @@ const retryRequest = async (config: any, retries = 3): Promise<any> => {
 apiClient.interceptors.response.use(
   (response) => response,
   async (error) => {
-    // Debug logging
+    // Debug logging - show full error details
     if (process.env.NODE_ENV === 'development') {
       console.error('[API Error]', {
         message: error.message,
         code: error.code,
+        name: error.name,
         baseURL: error.config?.baseURL,
         url: error.config?.url,
-        status: error.response?.status
+        method: error.config?.method,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        fullError: error
       })
     }
     
