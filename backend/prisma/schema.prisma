@@ -1,0 +1,284 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── ENUMS ────────────────────────────────────────────────────────────────────
+
+enum UserRole {
+  Sender
+  Driver
+  Supervisor
+  Admin
+}
+
+enum ShipmentStatus {
+  Created
+  PickedUp
+  InTransit
+  Delivered
+  Returned
+}
+
+enum Urgency {
+  Normal
+  Urgent
+  Express
+}
+
+enum RouteStatus {
+  Planned
+  InProgress
+  Completed
+  Cancelled
+}
+
+enum StopStatus {
+  Pending
+  InProgress
+  Completed
+  Skipped
+}
+
+enum RouteAssignmentStatus {
+  Assigned
+  InProgress
+  Completed
+  Cancelled
+}
+
+// ─── MODELS ───────────────────────────────────────────────────────────────────
+
+model User {
+  id           String   @id @default(uuid())
+  username     String?  @unique
+  email        String?  @unique
+  passwordHash String   @map("password_hash")
+  pinHash      String?  @map("pin_hash")
+  fullName     String   @map("full_name")
+  role         UserRole @default(Sender)
+  isActive     Boolean  @default(true) @map("is_active")
+  idNumber     String?  @unique @map("id_number")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  sentShipments      Shipment[]              @relation("SenderShipments")
+  shipmentEvents     ShipmentEvent[]
+  nfcScans           NfcScan[]
+  notificationPrefs  NotificationPreference?
+  assignedRoutes     Route[]                 @relation("DriverRoutes")
+  supervisedRoutes   Route[]                 @relation("SupervisorRoutes")
+  routeAssignments   RouteAssignment[]
+  proofOfDeliveries  ProofOfDelivery[]
+  auditLogs          AuditLog[]
+
+  @@map("users")
+}
+
+model Office {
+  id        String   @id @default(uuid())
+  name      String
+  address   String
+  lat       Float?
+  lng       Float?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  shipments  Shipment[]
+  nfcTags    NfcTag[]
+  routeStops RouteStop[]
+
+  @@map("offices")
+}
+
+model Shipment {
+  id                  String         @id @default(uuid())
+  trackingNumber      String         @unique @map("tracking_number")
+  destinationOfficeId String         @map("destination_office_id")
+  recipientName       String         @map("recipient_name")
+  packageType         String         @map("package_type")
+  urgency             Urgency        @default(Normal)
+  notes               String?
+  status              ShipmentStatus @default(Created)
+  senderId            String         @map("sender_id")
+  nfcScanRequired     Boolean        @default(false) @map("nfc_scan_required")
+  nfcTagId            String?        @map("nfc_tag_id")
+  assignedRouteId     String?        @map("assigned_route_id")
+  routeStopSequence   Int?           @map("route_stop_sequence")
+  lastUpdated         DateTime?      @map("last_updated")
+  createdAt           DateTime       @default(now()) @map("created_at")
+
+  destinationOffice Office          @relation(fields: [destinationOfficeId], references: [id])
+  sender            User            @relation("SenderShipments", fields: [senderId], references: [id])
+  nfcTag            NfcTag?         @relation(fields: [nfcTagId], references: [id])
+  assignedRoute     Route?          @relation(fields: [assignedRouteId], references: [id])
+  events            ShipmentEvent[]
+  proofOfDelivery   ProofOfDelivery?
+
+  @@index([status])
+  @@index([senderId])
+  @@index([destinationOfficeId])
+  @@map("shipments")
+}
+
+model ShipmentEvent {
+  id             String   @id @default(uuid())
+  trackingNumber String   @map("tracking_number")
+  eventType      String   @map("event_type")
+  description    String
+  updatedById    String?  @map("updated_by_id")
+  timestamp      DateTime @default(now())
+
+  shipment  Shipment @relation(fields: [trackingNumber], references: [trackingNumber])
+  updatedBy User?    @relation(fields: [updatedById], references: [id])
+
+  @@index([trackingNumber])
+  @@map("shipment_events")
+}
+
+model NfcTag {
+  id           String   @id @default(uuid())
+  tagId        String   @unique @map("tag_id")
+  officeId     String   @map("office_id")
+  locationName String   @map("location_name")
+  lat          Float?
+  lng          Float?
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  office     Office      @relation(fields: [officeId], references: [id])
+  scans      NfcScan[]
+  shipments  Shipment[]
+  routeStops RouteStop[]
+
+  @@map("nfc_tags")
+}
+
+model NfcScan {
+  id             String   @id @default(uuid())
+  tagId          String   @map("tag_id")
+  nfcTagRecordId String   @map("nfc_tag_record_id")
+  driverId       String   @map("driver_id")
+  scanTimestamp  DateTime @default(now()) @map("scan_timestamp")
+  expiresAt      DateTime @map("expires_at")
+  locationLat    Float?   @map("location_lat")
+  locationLng    Float?   @map("location_lng")
+
+  nfcTag NfcTag @relation(fields: [nfcTagRecordId], references: [id])
+  driver User   @relation(fields: [driverId], references: [id])
+
+  @@index([tagId, driverId, scanTimestamp])
+  @@index([expiresAt])
+  @@map("nfc_scans")
+}
+
+model NotificationPreference {
+  id                  String   @id @default(uuid())
+  userId              String   @unique @map("user_id")
+  notifyOnNfcScan     Boolean  @default(false) @map("notify_on_nfc_scan")
+  notifyOnDelivery    Boolean  @default(true) @map("notify_on_delivery")
+  notificationMethods String[] @default(["email"]) @map("notification_methods")
+  phoneNumber         String?  @map("phone_number")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notification_preferences")
+}
+
+model Route {
+  id                 String      @id @default(uuid())
+  routeName          String      @map("route_name")
+  assignedDriverId   String      @map("assigned_driver_id")
+  supervisorId       String?     @map("supervisor_id")
+  routeDate          DateTime    @map("route_date")
+  status             RouteStatus @default(Planned)
+  optimizedWaypoints Json?       @map("optimized_waypoints")
+  estimatedDuration  Int?        @map("estimated_duration")
+  actualStartTime    DateTime?   @map("actual_start_time")
+  actualEndTime      DateTime?   @map("actual_end_time")
+  createdAt          DateTime    @default(now()) @map("created_at")
+
+  driver         User              @relation("DriverRoutes", fields: [assignedDriverId], references: [id])
+  supervisorUser User?             @relation("SupervisorRoutes", fields: [supervisorId], references: [id])
+  stops          RouteStop[]
+  assignments    RouteAssignment[]
+  shipments      Shipment[]
+
+  @@index([assignedDriverId])
+  @@index([status])
+  @@map("routes")
+}
+
+model RouteStop {
+  id                      String     @id @default(uuid())
+  routeId                 String     @map("route_id")
+  stopSequence            Int        @map("stop_sequence")
+  officeId                String     @map("office_id")
+  nfcTagId                String?    @map("nfc_tag_id")
+  shipmentTrackingNumbers String[]   @map("shipment_tracking_numbers")
+  estimatedArrival        DateTime?  @map("estimated_arrival")
+  actualArrival           DateTime?  @map("actual_arrival")
+  stopStatus              StopStatus @default(Pending) @map("stop_status")
+
+  route  Route   @relation(fields: [routeId], references: [id], onDelete: Cascade)
+  office Office  @relation(fields: [officeId], references: [id])
+  nfcTag NfcTag? @relation(fields: [nfcTagId], references: [id])
+
+  @@index([routeId, stopSequence])
+  @@map("route_stops")
+}
+
+model RouteAssignment {
+  id           String                @id @default(uuid())
+  routeId      String                @map("route_id")
+  driverId     String                @map("driver_id")
+  assignedById String                @map("assigned_by_id")
+  assignedAt   DateTime              @default(now()) @map("assigned_at")
+  status       RouteAssignmentStatus @default(Assigned)
+
+  route  Route @relation(fields: [routeId], references: [id], onDelete: Cascade)
+  driver User  @relation(fields: [driverId], references: [id])
+
+  @@map("route_assignments")
+}
+
+model ProofOfDelivery {
+  id                String   @id @default(uuid())
+  trackingNumber    String   @unique @map("tracking_number")
+  driverId          String   @map("driver_id")
+  recipientName     String   @map("recipient_name")
+  deliverySignature String   @map("delivery_signature")
+  deliveryPhoto     String?  @map("delivery_photo")
+  deliveryTimestamp DateTime @default(now()) @map("delivery_timestamp")
+  deliveryLat       Float?   @map("delivery_lat")
+  deliveryLng       Float?   @map("delivery_lng")
+  notes             String?
+
+  shipment Shipment @relation(fields: [trackingNumber], references: [trackingNumber])
+  driver   User     @relation(fields: [driverId], references: [id])
+
+  @@map("proof_of_delivery")
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  action     String
+  userId     String   @map("user_id")
+  entityType String   @map("entity_type")
+  entityId   String   @map("entity_id")
+  changes    Json?
+  ipAddress  String?  @map("ip_address")
+  userAgent  String?  @map("user_agent")
+  timestamp  DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([entityType, entityId])
+  @@index([userId])
+  @@index([timestamp])
+  @@map("audit_logs")
+}

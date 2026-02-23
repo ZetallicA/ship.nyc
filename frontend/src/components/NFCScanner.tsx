@@ -1,7 +1,5 @@
-'use client'
-
 import { useState, useEffect, useRef } from 'react'
-import apiClient from '@/lib/axios'
+import apiClient from '../api/client'
 
 interface NFCScannerProps {
   onScanSuccess: (scanData: {
@@ -32,7 +30,7 @@ export default function NFCScanner({ onScanSuccess, onError, disabled = false }:
   const [success, setSuccess] = useState('')
   const [scanData, setScanData] = useState<NFCScanResponse | null>(null)
   const [timeRemaining, setTimeRemaining] = useState<number | null>(null)
-  const intervalRef = useRef<NodeJS.Timeout | null>(null)
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   // Check if Web NFC is available
   // Web NFC API is supported in Chrome on Android (Android 5.0+)

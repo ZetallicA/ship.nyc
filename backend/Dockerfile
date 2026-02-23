@@ -1,11 +1,24 @@
-FROM python:3.11-slim
-
+FROM node:20-alpine AS base
 WORKDIR /app
 
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+FROM base AS deps
+COPY package*.json ./
+RUN npm ci
 
+FROM deps AS builder
 COPY . .
+RUN npx prisma generate
+RUN npm run build
 
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+FROM base AS runner
+ENV NODE_ENV=production
 
+COPY --from=deps /app/node_modules ./node_modules
+COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/prisma ./prisma
+COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
+COPY package.json ./
+
+EXPOSE 8000
+
+CMD sh -c "npx prisma migrate deploy && node dist/index.js"

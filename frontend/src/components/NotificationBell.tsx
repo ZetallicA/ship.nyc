@@ -1,6 +1,4 @@
-'use client'
-
-import { useNotifications } from '@/hooks/useNotifications'
+import { useNotifications } from '../hooks/useNotifications'
 import { useState, useEffect, useRef } from 'react'
 
 export default function NotificationBell() {
@@ -26,14 +24,10 @@ export default function NotificationBell() {
 
   const getIconColor = (type: string) => {
     switch (type) {
-      case 'success':
-        return 'text-green-500'
-      case 'error':
-        return 'text-red-500'
-      case 'warning':
-        return 'text-yellow-500'
-      default:
-        return 'text-blue-500'
+      case 'success': return 'text-green-500'
+      case 'error': return 'text-red-500'
+      case 'warning': return 'text-yellow-500'
+      default: return 'text-blue-500'
     }
   }
 
@@ -72,10 +66,7 @@ export default function NotificationBell() {
           <div className="p-4 border-b border-gray-200 flex items-center justify-between">
             <h3 className="font-semibold text-gray-900">Notifications</h3>
             {unreadCount > 0 && (
-              <button
-                onClick={markAllAsRead}
-                className="text-sm text-primary-blue hover:text-blue-700"
-              >
+              <button onClick={markAllAsRead} className="text-sm text-primary-blue hover:text-blue-700">
                 Mark all as read
               </button>
             )}
@@ -93,14 +84,8 @@ export default function NotificationBell() {
               notifications.map((notification) => (
                 <div
                   key={notification.id}
-                  onClick={() => {
-                    if (!notification.read) {
-                      markAsRead(notification.id)
-                    }
-                  }}
-                  className={`p-4 border-b border-gray-100 hover:bg-gray-50 cursor-pointer ${
-                    !notification.read ? 'bg-blue-50' : ''
-                  }`}
+                  onClick={() => { if (!notification.read) markAsRead(notification.id) }}
+                  className={`p-4 border-b border-gray-100 hover:bg-gray-50 cursor-pointer ${!notification.read ? 'bg-blue-50' : ''}`}
                 >
                   <div className="flex items-start space-x-3">
                     <div className={`flex-shrink-0 ${getIconColor(notification.type)}`}>
@@ -133,10 +118,7 @@ export default function NotificationBell() {
                       <p className="text-xs text-gray-400 mt-1">{formatTime(notification.timestamp)}</p>
                     </div>
                     <button
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        clearNotification(notification.id)
-                      }}
+                      onClick={(e) => { e.stopPropagation(); clearNotification(notification.id) }}
                       className="flex-shrink-0 text-gray-400 hover:text-gray-600"
                       aria-label="Dismiss notification"
                     >
@@ -154,4 +136,3 @@ export default function NotificationBell() {
     </div>
   )
 }
-

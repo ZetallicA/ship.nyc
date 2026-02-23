@@ -1,8 +1,6 @@
-'use client'
-
 import { useState, useRef, useEffect } from 'react'
-import Link from 'next/link'
-import { useAuth } from '@/hooks/useAuth'
+import { Link } from 'react-router-dom'
+import { useAuth } from '../hooks/useAuth'
 import SearchBar from './SearchBar'
 import NotificationBell from './NotificationBell'
 
@@ -34,7 +32,6 @@ export default function Navigation({ showBack = false, backUrl = '/dashboard', t
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
 
-  // Close mobile menu when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
@@ -58,16 +55,16 @@ export default function Navigation({ showBack = false, backUrl = '/dashboard', t
           {/* Left side - Logo and Title */}
           <div className="flex items-center space-x-2 sm:space-x-4 flex-1 min-w-0">
             {showBack && (
-              <Link href={backUrl} aria-label="Go back" className="mr-2 sm:mr-4 flex-shrink-0">
+              <Link to={backUrl} aria-label="Go back" className="mr-2 sm:mr-4 flex-shrink-0">
                 <svg className="w-6 h-6 text-gray-600 hover:text-gray-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                 </svg>
               </Link>
             )}
-            <Link href="/dashboard" className="flex items-center flex-shrink-0" aria-label="OATH Logistics Home">
-              <img 
-                src="/oath-logo.png" 
-                alt="OATH Logistics" 
+            <Link to="/dashboard" className="flex items-center flex-shrink-0" aria-label="OATH Logistics Home">
+              <img
+                src="/oath-logo.png"
+                alt="OATH Logistics"
                 className="h-12 sm:h-16 w-auto"
                 style={{ maxHeight: '80px' }}
               />
@@ -97,7 +94,7 @@ export default function Navigation({ showBack = false, backUrl = '/dashboard', t
               <>
                 {user.role === 'Admin' && (
                   <Link
-                    href="/admin"
+                    to="/admin"
                     aria-label="Admin Panel"
                     className="px-4 py-2 text-primary-blue hover:text-blue-700 font-medium"
                   >
@@ -106,7 +103,7 @@ export default function Navigation({ showBack = false, backUrl = '/dashboard', t
                 )}
                 {user.role === 'Driver' && (
                   <Link
-                    href="/driver"
+                    to="/driver"
                     aria-label="Driver View"
                     className="px-4 py-2 text-primary-blue hover:text-blue-700 font-medium"
                   >
@@ -114,7 +111,7 @@ export default function Navigation({ showBack = false, backUrl = '/dashboard', t
                   </Link>
                 )}
                 <Link
-                  href="/settings"
+                  to="/settings"
                   aria-label="Settings"
                   className="px-4 py-2 text-gray-700 hover:text-gray-900 font-medium flex items-center space-x-1"
                 >
@@ -149,27 +146,23 @@ export default function Navigation({ showBack = false, backUrl = '/dashboard', t
                 )}
               </button>
 
-              {/* Mobile Menu Dropdown */}
               {mobileMenuOpen && (
                 <div className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 z-50 py-2">
-                  {/* Search Bar (Mobile) */}
                   {showSearch && (
                     <div className="px-4 pb-3 border-b border-gray-200 md:hidden">
                       <SearchBar />
                     </div>
                   )}
 
-                  {/* User Info */}
                   <div className="px-4 py-3 border-b border-gray-200">
                     <p className="text-sm font-medium text-gray-900">{user.full_name}</p>
                     <p className="text-xs text-gray-600">{user.role}</p>
                   </div>
 
-                  {/* Menu Items */}
                   <div className="py-2">
                     {user.role === 'Admin' && (
                       <Link
-                        href="/admin"
+                        to="/admin"
                         onClick={() => setMobileMenuOpen(false)}
                         className="flex items-center space-x-3 px-4 py-3 text-gray-700 hover:bg-gray-50 transition-colors"
                       >
@@ -181,7 +174,7 @@ export default function Navigation({ showBack = false, backUrl = '/dashboard', t
                     )}
                     {user.role === 'Driver' && (
                       <Link
-                        href="/driver"
+                        to="/driver"
                         onClick={() => setMobileMenuOpen(false)}
                         className="flex items-center space-x-3 px-4 py-3 text-gray-700 hover:bg-gray-50 transition-colors"
                       >
@@ -192,7 +185,7 @@ export default function Navigation({ showBack = false, backUrl = '/dashboard', t
                       </Link>
                     )}
                     <Link
-                      href="/settings"
+                      to="/settings"
                       onClick={() => setMobileMenuOpen(false)}
                       className="flex items-center space-x-3 px-4 py-3 text-gray-700 hover:bg-gray-50 transition-colors"
                     >
@@ -207,9 +200,8 @@ export default function Navigation({ showBack = false, backUrl = '/dashboard', t
                     </div>
                   </div>
 
-                  {/* Logout Button */}
                   <div className="px-4 py-3 border-t border-gray-200">
-                    <LogoutButton onClick={() => { logout(); setMobileMenuOpen(false); }} />
+                    <LogoutButton onClick={() => { logout(); setMobileMenuOpen(false) }} />
                   </div>
                 </div>
               )}
@@ -220,4 +212,3 @@ export default function Navigation({ showBack = false, backUrl = '/dashboard', t
     </header>
   )
 }
-

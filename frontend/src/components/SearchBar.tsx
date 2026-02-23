@@ -1,9 +1,6 @@
-'use client'
-
 import { useState, useEffect, useRef } from 'react'
-import { useRouter } from 'next/navigation'
-import apiClient from '@/lib/axios'
-import { useLoading } from '@/hooks/useLoading'
+import { useNavigate } from 'react-router-dom'
+import apiClient from '../api/client'
 
 interface SearchResult {
   tracking_number: string
@@ -18,7 +15,7 @@ interface SearchBarProps {
   className?: string
 }
 
-export default function SearchBar({ 
+export default function SearchBar({
   placeholder = 'Search by tracking number, recipient, or office...',
   onResultClick,
   className = ''
@@ -27,8 +24,7 @@ export default function SearchBar({
   const [results, setResults] = useState<SearchResult[]>([])
   const [loading, setLoading] = useState(false)
   const [isOpen, setIsOpen] = useState(false)
-  const router = useRouter()
-  const { setLoading: setGlobalLoading, setLoadingMessage } = useLoading()
+  const navigate = useNavigate()
   const searchRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -56,10 +52,8 @@ export default function SearchBar({
     setLoading(true)
     setIsOpen(true)
     try {
-      const response = await apiClient.get('/shipments', {
-        params: { search: searchQuery }
-      })
-      setResults(response.data.slice(0, 5)) // Limit to 5 results
+      const response = await apiClient.get('/shipments', { params: { search: searchQuery } })
+      setResults(response.data.slice(0, 5))
     } catch (error) {
       console.error('Search failed:', error)
       setResults([])
@@ -74,10 +68,7 @@ export default function SearchBar({
     if (onResultClick) {
       onResultClick(trackingNumber)
     } else {
-      // Show loading immediately before navigation
-      setGlobalLoading(true)
-      setLoadingMessage('Loading page...')
-      router.push(`/track?tracking=${trackingNumber}`)
+      navigate(`/track?tracking=${trackingNumber}`)
     }
   }
 
@@ -158,4 +149,3 @@ export default function SearchBar({
     </div>
   )
 }
-

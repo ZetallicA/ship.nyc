@@ -1,8 +1,6 @@
-'use client'
+import { useState, useEffect, useCallback, createContext, useContext, ReactNode, useRef } from 'react'
 
-import { useState, useEffect, createContext, useContext, ReactNode } from 'react'
-
-interface Notification {
+export interface Notification {
   id: string
   type: 'success' | 'error' | 'info' | 'warning'
   title: string
@@ -24,17 +22,14 @@ const NotificationContext = createContext<NotificationContextType | undefined>(u
 
 export function NotificationProvider({ children }: { children: ReactNode }) {
   const [notifications, setNotifications] = useState<Notification[]>([])
+  const wsRef = useRef<WebSocket | null>(null)
 
   useEffect(() => {
-    // Load notifications from localStorage
     const saved = localStorage.getItem('notifications')
     if (saved) {
       try {
         const parsed = JSON.parse(saved)
-        setNotifications(parsed.map((n: any) => ({
-          ...n,
-          timestamp: new Date(n.timestamp)
-        })))
+        setNotifications(parsed.map((n: any) => ({ ...n, timestamp: new Date(n.timestamp) })))
       } catch (e) {
         console.error('Failed to load notifications:', e)
       }
@@ -42,49 +37,78 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   }, [])
 
   useEffect(() => {
-    // Save notifications to localStorage
     if (notifications.length > 0) {
       localStorage.setItem('notifications', JSON.stringify(notifications))
     }
   }, [notifications])
 
-  const addNotification = (notification: Omit<Notification, 'id' | 'timestamp' | 'read'>) => {
+  const addNotification = useCallback((notification: Omit<Notification, 'id' | 'timestamp' | 'read'>) => {
     const newNotification: Notification = {
       ...notification,
       id: Date.now().toString(),
       timestamp: new Date(),
-      read: false
+      read: false,
     }
-    setNotifications(prev => [newNotification, ...prev].slice(0, 50)) // Keep last 50
-  }
+    setNotifications((prev) => [newNotification, ...prev].slice(0, 50))
+  }, [])
+
+  // WebSocket for real-time status updates
+  useEffect(() => {
+    const token = localStorage.getItem('token')
+    if (!token) return
+
+    const apiUrl = import.meta.env.VITE_API_URL || ''
+    let wsBase: string
+    if (apiUrl) {
+      wsBase = apiUrl.replace(/^https?/, (m: string) => (m === 'https' ? 'wss' : 'ws'))
+    } else {
+      const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+      wsBase = `${proto}//${window.location.hostname}:8000`
+    }
+
+    try {
+      const ws = new WebSocket(`${wsBase}?token=${token}`)
+      wsRef.current = ws
+
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data)
+          if (data.event === 'status_update') {
+            addNotification({
+              title: 'Shipment Update',
+              message: `${data.tracking_number} is now ${data.status}`,
+              type: 'info',
+            })
+          }
+        } catch {
+          // ignore malformed messages
+        }
+      }
+    } catch {
+      // WebSocket unavailable — notifications still work without real-time
+    }
+
+    return () => {
+      wsRef.current?.close()
+    }
+  }, [addNotification])
 
   const markAsRead = (id: string) => {
-    setNotifications(prev =>
-      prev.map(n => n.id === id ? { ...n, read: true } : n)
-    )
+    setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)))
   }
 
   const markAllAsRead = () => {
-    setNotifications(prev => prev.map(n => ({ ...n, read: true })))
+    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })))
   }
 
   const clearNotification = (id: string) => {
-    setNotifications(prev => prev.filter(n => n.id !== id))
+    setNotifications((prev) => prev.filter((n) => n.id !== id))
   }
 
-  const unreadCount = notifications.filter(n => !n.read).length
+  const unreadCount = notifications.filter((n) => !n.read).length
 
   return (
-    <NotificationContext.Provider
-      value={{
-        notifications,
-        addNotification,
-        markAsRead,
-        markAllAsRead,
-        unreadCount,
-        clearNotification
-      }}
-    >
+    <NotificationContext.Provider value={{ notifications, addNotification, markAsRead, markAllAsRead, unreadCount, clearNotification }}>
       {children}
     </NotificationContext.Provider>
   )
@@ -97,4 +121,3 @@ export function useNotifications() {
   }
   return context
 }
-

@@ -1,5 +1,3 @@
-'use client'
-
 import { useState, useEffect } from 'react'
 
 interface SavedRecipient {
@@ -15,7 +13,6 @@ export function useSavedRecipients() {
   const [recipients, setRecipients] = useState<SavedRecipient[]>([])
 
   useEffect(() => {
-    // Load from localStorage
     const saved = localStorage.getItem(STORAGE_KEY)
     if (saved) {
       try {
@@ -31,7 +28,7 @@ export function useSavedRecipients() {
       id: Date.now().toString(),
       name,
       officeId,
-      officeName
+      officeName,
     }
     const updated = [...recipients, newRecipient]
     setRecipients(updated)
@@ -39,15 +36,10 @@ export function useSavedRecipients() {
   }
 
   const deleteRecipient = (id: string) => {
-    const updated = recipients.filter(r => r.id !== id)
+    const updated = recipients.filter((r) => r.id !== id)
     setRecipients(updated)
     localStorage.setItem(STORAGE_KEY, JSON.stringify(updated))
   }
 
-  return {
-    recipients,
-    saveRecipient,
-    deleteRecipient
-  }
+  return { recipients, saveRecipient, deleteRecipient }
 }
-
