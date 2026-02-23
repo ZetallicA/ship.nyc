@@ -3,7 +3,6 @@ import cors from 'cors'
 import helmet from 'helmet'
 import morgan from 'morgan'
 import path from 'path'
-import fs from 'fs'
 import { fileURLToPath } from 'url'
 import { config } from './config.js'
 import { registerRoutes } from './routes/index.js'
@@ -21,7 +20,7 @@ export function createApp() {
   // Security headers
   app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }))
 
-  // CORS
+  // CORS — scoped to /api only so static file requests are never affected
   const corsOptions: cors.CorsOptions = config.corsAllowAll
     ? { origin: true, credentials: true }
     : {
@@ -34,7 +33,7 @@ export function createApp() {
         },
         credentials: true,
       }
-  app.use(cors(corsOptions))
+  app.use('/api', cors(corsOptions))
 
   // Body parsing
   app.use(express.json({ limit: '10mb' }))
@@ -53,24 +52,10 @@ export function createApp() {
   if (config.nodeEnv === 'production') {
     const publicDir = path.join(__dirname, '../public')
     const indexHtml = path.join(publicDir, 'index.html')
-    const assetsDir = path.join(publicDir, 'assets')
-    console.log('[Static] publicDir:', publicDir)
-    console.log('[Static] assets exists:', fs.existsSync(assetsDir))
-    if (fs.existsSync(assetsDir)) {
-      console.log('[Static] assets contents:', fs.readdirSync(assetsDir))
-    }
-    app.use(express.static(publicDir, {
-      setHeaders: (res, filePath) => {
-        console.log('[Static serving]', filePath)
-      },
-    }))
+    app.use(express.static(publicDir))
     app.get('*', (req, res, next) => {
-      console.log('[Catch-all]', req.originalUrl)
       res.sendFile(indexHtml, (err) => {
-        if (err) {
-          console.log('[Catch-all] sendFile error:', err.message)
-          next(err)
-        }
+        if (err) next(err)
       })
     })
   }
