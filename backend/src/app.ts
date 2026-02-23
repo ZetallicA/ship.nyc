@@ -3,6 +3,7 @@ import cors from 'cors'
 import helmet from 'helmet'
 import morgan from 'morgan'
 import path from 'path'
+import fs from 'fs'
 import { fileURLToPath } from 'url'
 import { config } from './config.js'
 import { registerRoutes } from './routes/index.js'
@@ -51,9 +52,16 @@ export function createApp() {
   // Serve frontend in production (backend and frontend are bundled together)
   if (config.nodeEnv === 'production') {
     const publicDir = path.join(__dirname, '../public')
+    const indexHtml = path.join(publicDir, 'index.html')
+    console.log('[Static] publicDir:', publicDir)
+    console.log('[Static] exists:', fs.existsSync(publicDir))
+    console.log('[Static] index.html exists:', fs.existsSync(indexHtml))
+    if (fs.existsSync(publicDir)) {
+      console.log('[Static] contents:', fs.readdirSync(publicDir))
+    }
     app.use(express.static(publicDir))
     app.get('*', (_req, res) => {
-      res.sendFile(path.join(publicDir, 'index.html'))
+      res.sendFile(indexHtml)
     })
   }
 
