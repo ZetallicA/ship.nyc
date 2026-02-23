@@ -7,7 +7,9 @@ import ProtectedRoute from './router/ProtectedRoute'
 
 import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
-import DashboardPage from './pages/DashboardPage'
+import HomePage from './pages/HomePage'
+import KioskPage from './pages/KioskPage'
+import DisplayPage from './pages/DisplayPage'
 import SendPage from './pages/SendPage'
 import TrackPage from './pages/TrackPage'
 import MailboxPage from './pages/MailboxPage'
@@ -22,17 +24,34 @@ export default function App() {
         <NotificationProvider>
           <LoadingProvider>
             <Routes>
-              <Route path="/" element={<Navigate to="/dashboard" replace />} />
-              <Route path="/login" element={<LoginPage />} />
-              <Route path="/register" element={<RegisterPage />} />
+              {/* Portal hub */}
               <Route
-                path="/dashboard"
+                path="/"
                 element={
                   <ProtectedRoute>
-                    <DashboardPage />
+                    <HomePage />
                   </ProtectedRoute>
                 }
               />
+
+              {/* Auth */}
+              <Route path="/login" element={<LoginPage />} />
+              <Route path="/register" element={<RegisterPage />} />
+
+              {/* Kiosk — touch-friendly launcher for ops staff */}
+              <Route
+                path="/kiosk"
+                element={
+                  <ProtectedRoute>
+                    <KioskPage />
+                  </ProtectedRoute>
+                }
+              />
+
+              {/* Display — live shipment board, publicly accessible for office monitors */}
+              <Route path="/display" element={<DisplayPage />} />
+
+              {/* Shipment workflows */}
               <Route
                 path="/send"
                 element={
@@ -50,6 +69,8 @@ export default function App() {
                   </ProtectedRoute>
                 }
               />
+
+              {/* Staff views */}
               <Route
                 path="/driver"
                 element={
@@ -74,13 +95,16 @@ export default function App() {
                   </ProtectedRoute>
                 }
               />
-              <Route path="*" element={<Navigate to="/dashboard" replace />} />
+
+              {/* Legacy redirect */}
+              <Route path="/dashboard" element={<Navigate to="/" replace />} />
+              <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
             <Toaster
               position="top-right"
               toastOptions={{
                 duration: 4000,
-                style: { background: '#363636', color: '#fff' },
+                style: { background: '#1e3a5f', color: '#fff' },
                 success: { duration: 3000 },
                 error: { duration: 5000 },
               }}

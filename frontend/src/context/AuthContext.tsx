@@ -37,7 +37,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  const login = async (username: string, password: string, redirectUrl = '/dashboard') => {
+  const login = async (username: string, password: string, redirectUrl = '/') => {
     try {
       const res = await apiClient.post('/auth/login', { username, password })
       localStorage.setItem('token', res.data.access_token)
@@ -51,7 +51,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  const loginPIN = async (id_number: string, pin: string, redirectUrl = '/dashboard') => {
+  const loginPIN = async (id_number: string, pin: string, redirectUrl = '/') => {
     try {
       const res = await apiClient.post('/auth/login-pin', { id_number: id_number.trim(), pin: pin.trim() })
       localStorage.setItem('token', res.data.access_token)

@@ -15,7 +15,7 @@ export default function LoginPage() {
   const [submitting, setSubmitting] = useState(false)
   const [pinResetTrigger, setPinResetTrigger] = useState(0)
 
-  if (user) return <Navigate to="/dashboard" replace />
+  if (user) return <Navigate to="/" replace />
 
   const handlePasswordLogin = async (e: React.FormEvent) => {
     e.preventDefault()
