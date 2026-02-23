@@ -5,26 +5,9 @@ on:
     branches: [main]
 
 jobs:
-  setup:
-    name: Configure CapRover (first-run)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-      - name: Configure CapRover apps
-        run: node .github/scripts/setup.mjs
-        env:
-          CAPROVER_URL:       ${{ vars.CAPROVER_URL }}
-          CAPROVER_PASSWORD:  ${{ secrets.CAPROVER_PASSWORD }}
-          BACKEND_APP:        ${{ vars.BACKEND_APP }}
-          FRONTEND_APP:       ${{ vars.FRONTEND_APP }}
-
   deploy-backend:
     name: Deploy Backend
     runs-on: ubuntu-latest
-    needs: setup
     steps:
       - uses: actions/checkout@v4
 
