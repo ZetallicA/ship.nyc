@@ -14,23 +14,13 @@ jobs:
       - name: Install caprover CLI
         run: npm install -g caprover
 
-      - name: Package backend
-        run: |
-          tar \
-            --exclude='./node_modules' \
-            --exclude='./dist' \
-            --exclude='./.env' \
-            --exclude='*.log' \
-            -czf backend.tar.gz \
-            -C backend .
-
       - name: Deploy backend to CapRover
+        working-directory: ./backend
         run: |
           caprover deploy \
             --host "${{ vars.CAPROVER_URL }}" \
             --password "${{ secrets.CAPROVER_PASSWORD }}" \
-            --appName "${{ vars.BACKEND_APP }}" \
-            --tarFile ./backend.tar.gz
+            --appName "${{ vars.BACKEND_APP }}"
 
   deploy-frontend:
     name: Deploy Frontend
@@ -42,20 +32,10 @@ jobs:
       - name: Install caprover CLI
         run: npm install -g caprover
 
-      - name: Package frontend
-        run: |
-          tar \
-            --exclude='./node_modules' \
-            --exclude='./dist' \
-            --exclude='./.env' \
-            --exclude='*.log' \
-            -czf frontend.tar.gz \
-            -C frontend .
-
       - name: Deploy frontend to CapRover
+        working-directory: ./frontend
         run: |
           caprover deploy \
             --host "${{ vars.CAPROVER_URL }}" \
             --password "${{ secrets.CAPROVER_PASSWORD }}" \
-            --appName "${{ vars.FRONTEND_APP }}" \
-            --tarFile ./frontend.tar.gz
+            --appName "${{ vars.FRONTEND_APP }}"
