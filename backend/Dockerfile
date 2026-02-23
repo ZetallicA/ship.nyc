@@ -21,4 +21,11 @@ COPY package.json ./
 
 EXPOSE 8000
 
-CMD sh -c "npx prisma migrate deploy && node dist/index.js"
+# Wait for postgres, run migrations, then start
+CMD sh -c "\
+  echo 'Waiting for database...' && \
+  until npx prisma migrate deploy 2>&1; do \
+    echo 'Migration failed, retrying in 5s...' && sleep 5; \
+  done && \
+  echo 'Migrations done.' && \
+  node dist/index.js"
