@@ -1,36 +1,20 @@
-name: Deploy to CapRover
+name: CI
 
 on:
   push:
     branches: [main]
+  pull_request:
+    branches: [main]
 
 jobs:
-  deploy:
-    name: Deploy
+  build:
+    name: Build check
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install caprover CLI
-        run: npm install -g caprover@2.3.0
-
-      - name: Create deployment package
+      - name: Check TypeScript compiles
         run: |
-          tar \
-            --exclude='.git' \
-            --exclude='backend/node_modules' \
-            --exclude='frontend/node_modules' \
-            --exclude='backend/dist' \
-            --exclude='frontend/dist' \
-            --exclude='backend/.env' \
-            --exclude='frontend/.env' \
-            --exclude='*.log' \
-            -czf /tmp/deploy.tar.gz .
-
-      - name: Deploy to CapRover
-        run: |
-          caprover deploy \
-            --caproverUrl "${{ vars.CAPROVER_URL }}" \
-            --caproverPassword "${{ secrets.CAPROVER_PASSWORD }}" \
-            --appName "${{ vars.BACKEND_APP }}" \
-            --tarFile /tmp/deploy.tar.gz
+          cd backend
+          npm ci --prefer-offline
+          npm run build
