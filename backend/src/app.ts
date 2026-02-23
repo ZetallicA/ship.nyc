@@ -2,10 +2,14 @@ import express from 'express'
 import cors from 'cors'
 import helmet from 'helmet'
 import morgan from 'morgan'
+import path from 'path'
+import { fileURLToPath } from 'url'
 import { config } from './config.js'
 import { registerRoutes } from './routes/index.js'
 import { errorHandler } from './middleware/errorHandler.js'
 import { apiLimiter } from './middleware/rateLimiter.js'
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 export function createApp() {
   const app = express()
@@ -43,6 +47,15 @@ export function createApp() {
 
   // Routes
   registerRoutes(app)
+
+  // Serve frontend in production (backend and frontend are bundled together)
+  if (config.nodeEnv === 'production') {
+    const publicDir = path.join(__dirname, '../public')
+    app.use(express.static(publicDir))
+    app.get('*', (_req, res) => {
+      res.sendFile(path.join(publicDir, 'index.html'))
+    })
+  }
 
   // Error handler (must be last)
   app.use(errorHandler)
