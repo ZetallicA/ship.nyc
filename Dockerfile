@@ -17,6 +17,8 @@ FROM node:20-alpine AS runner
 ENV NODE_ENV=production
 WORKDIR /app
 
+RUN apk add --no-cache openssl
+
 COPY --from=backend-builder /app/backend/node_modules ./node_modules
 COPY --from=backend-builder /app/backend/dist ./dist
 COPY --from=backend-builder /app/backend/prisma ./prisma
