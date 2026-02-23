@@ -39,8 +39,12 @@ export function createApp() {
   app.use(express.json({ limit: '10mb' }))
   app.use(express.urlencoded({ extended: true }))
 
-  // Logging
-  app.use(morgan(config.nodeEnv === 'production' ? 'combined' : 'dev'))
+  // Logging — :real-ip resolves X-Forwarded-For set by CapRover nginx
+  morgan.token('real-ip', (req) => {
+    const forwarded = req.headers['x-forwarded-for']
+    return (Array.isArray(forwarded) ? forwarded[0] : forwarded?.split(',')[0]?.trim()) ?? req.socket.remoteAddress ?? '-'
+  })
+  app.use(morgan(config.nodeEnv === 'production' ? ':real-ip - :remote-user [:date[clf]] ":method :url HTTP/:http-version" :status :res[content-length] ":referrer" ":user-agent"' : 'dev'))
 
   // Rate limiting on all API routes
   app.use('/api', apiLimiter)
