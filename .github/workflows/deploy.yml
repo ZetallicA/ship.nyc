@@ -14,9 +14,23 @@ jobs:
       - name: Install caprover CLI
         run: npm install -g caprover
 
+      - name: Create deployment package
+        run: |
+          tar \
+            --exclude='.git' \
+            --exclude='backend/node_modules' \
+            --exclude='frontend/node_modules' \
+            --exclude='backend/dist' \
+            --exclude='frontend/dist' \
+            --exclude='backend/.env' \
+            --exclude='frontend/.env' \
+            --exclude='*.log' \
+            -czf deploy.tar.gz .
+
       - name: Deploy to CapRover
         run: |
           caprover deploy \
             --host "${{ vars.CAPROVER_URL }}" \
             --password "${{ secrets.CAPROVER_PASSWORD }}" \
-            --appName "${{ vars.BACKEND_APP }}"
+            --appName "${{ vars.BACKEND_APP }}" \
+            --tarFile ./deploy.tar.gz
