@@ -25,7 +25,7 @@ jobs:
             --exclude='backend/.env' \
             --exclude='frontend/.env' \
             --exclude='*.log' \
-            -czf deploy.tar.gz .
+            -czf /tmp/deploy.tar.gz .
 
       - name: Deploy to CapRover
         run: |
@@ -33,4 +33,4 @@ jobs:
             --host "${{ vars.CAPROVER_URL }}" \
             --password "${{ secrets.CAPROVER_PASSWORD }}" \
             --appName "${{ vars.BACKEND_APP }}" \
-            --tarFile ./deploy.tar.gz
+            --tarFile /tmp/deploy.tar.gz
