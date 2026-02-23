@@ -53,15 +53,25 @@ export function createApp() {
   if (config.nodeEnv === 'production') {
     const publicDir = path.join(__dirname, '../public')
     const indexHtml = path.join(publicDir, 'index.html')
+    const assetsDir = path.join(publicDir, 'assets')
     console.log('[Static] publicDir:', publicDir)
-    console.log('[Static] exists:', fs.existsSync(publicDir))
-    console.log('[Static] index.html exists:', fs.existsSync(indexHtml))
-    if (fs.existsSync(publicDir)) {
-      console.log('[Static] contents:', fs.readdirSync(publicDir))
+    console.log('[Static] assets exists:', fs.existsSync(assetsDir))
+    if (fs.existsSync(assetsDir)) {
+      console.log('[Static] assets contents:', fs.readdirSync(assetsDir))
     }
-    app.use(express.static(publicDir))
-    app.get('*', (_req, res) => {
-      res.sendFile(indexHtml)
+    app.use(express.static(publicDir, {
+      setHeaders: (res, filePath) => {
+        console.log('[Static serving]', filePath)
+      },
+    }))
+    app.get('*', (req, res, next) => {
+      console.log('[Catch-all]', req.originalUrl)
+      res.sendFile(indexHtml, (err) => {
+        if (err) {
+          console.log('[Catch-all] sendFile error:', err.message)
+          next(err)
+        }
+      })
     })
   }
 

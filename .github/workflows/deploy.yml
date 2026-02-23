@@ -30,7 +30,7 @@ jobs:
       - name: Deploy to CapRover
         run: |
           caprover deploy \
-            --host "${{ vars.CAPROVER_URL }}" \
-            --password "${{ secrets.CAPROVER_PASSWORD }}" \
+            --caproverUrl "${{ vars.CAPROVER_URL }}" \
+            --caproverPassword "${{ secrets.CAPROVER_PASSWORD }}" \
             --appName "${{ vars.BACKEND_APP }}" \
             --tarFile /tmp/deploy.tar.gz
